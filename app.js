@@ -1,5 +1,7 @@
 const STATUS_OPTIONS = ["new", "testing", "done"];
 const VALID_TYPES = ["admin", "website", "android", "ios"];
+const AUTH_LOGIN = "admin";
+const AUTH_EMAIL = "admin@release-manager.local";
 
 const TYPE_LABELS = {
   admin: "Админка",
@@ -30,6 +32,7 @@ const state = {
   releases: [],
   supabase: null,
   channel: null,
+  session: null,
 };
 
 function getSupabaseConfig() {
@@ -261,15 +264,21 @@ function showSetupBanner() {
   document.getElementById("setup-banner").classList.remove("hidden");
 }
 
+function showAuthScreen() {
+  document.getElementById("auth-screen").classList.remove("hidden");
+  document.getElementById("app-shell").classList.add("hidden");
+  document.getElementById("logout-button").classList.add("hidden");
+}
+
+function showAppShell() {
+  document.getElementById("auth-screen").classList.add("hidden");
+  document.getElementById("app-shell").classList.remove("hidden");
+  document.getElementById("logout-button").classList.remove("hidden");
+}
+
 function getSupabaseClient() {
   const { url, anonKey } = getSupabaseConfig();
-  return window.supabase.createClient(url, anonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
+  return window.supabase.createClient(url, anonKey);
 }
 
 async function fetchReleases() {
@@ -300,6 +309,10 @@ async function refresh() {
 }
 
 function initRealtime() {
+  if (state.channel) {
+    state.supabase.removeChannel(state.channel);
+  }
+
   state.channel = state.supabase
     .channel("public:releases")
     .on(
@@ -314,6 +327,15 @@ function initRealtime() {
       }
     )
     .subscribe();
+}
+
+function stopRealtime() {
+  if (!state.channel) {
+    return;
+  }
+
+  state.supabase.removeChannel(state.channel);
+  state.channel = null;
 }
 
 async function createRelease({ title, type, date, assignedTester }) {
@@ -393,6 +415,52 @@ function initTabs() {
       tab.classList.add("active");
       document.getElementById(`panel-${target}`).classList.add("active");
     });
+  });
+}
+
+function initAuthForm() {
+  const form = document.getElementById("login-form");
+  const logoutButton = document.getElementById("logout-button");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const login = String(data.get("login") || "").trim();
+    const password = String(data.get("password") || "");
+
+    try {
+      if (login !== AUTH_LOGIN) {
+        throw new Error("Неверный логин.");
+      }
+
+      const { data: authData, error } = await state.supabase.auth.signInWithPassword({
+        email: AUTH_EMAIL,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      state.session = authData.session || null;
+      form.reset();
+      await enterAuthenticatedMode();
+    } catch (error) {
+      alert(error.message || "Не удалось войти.");
+    }
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    const { error } = await state.supabase.auth.signOut();
+    if (error) {
+      alert(error.message || "Не удалось выйти.");
+      return;
+    }
+
+    state.session = null;
+    state.releases = [];
+    stopRealtime();
+    showAuthScreen();
   });
 }
 
@@ -485,9 +553,18 @@ function initTableActions() {
   });
 }
 
-async function init() {
-  initTabs();
+async function enterAuthenticatedMode() {
+  showAppShell();
+  initRealtime();
 
+  try {
+    await refresh();
+  } catch (error) {
+    renderError(error.message);
+  }
+}
+
+async function init() {
   if (!isConfigReady()) {
     showSetupBanner();
     renderError("Заполни config.js, чтобы подключиться к Supabase.");
@@ -495,14 +572,35 @@ async function init() {
   }
 
   state.supabase = getSupabaseClient();
+  initTabs();
+  initAuthForm();
   initForms();
   initTableActions();
-  initRealtime();
+  showAuthScreen();
 
-  try {
-    await refresh();
-  } catch (error) {
+  const { data, error } = await state.supabase.auth.getSession();
+  if (error) {
     renderError(error.message);
+    return;
+  }
+
+  state.session = data.session || null;
+
+  state.supabase.auth.onAuthStateChange(async (_event, session) => {
+    state.session = session || null;
+
+    if (!state.session) {
+      state.releases = [];
+      stopRealtime();
+      showAuthScreen();
+      return;
+    }
+
+    await enterAuthenticatedMode();
+  });
+
+  if (state.session) {
+    await enterAuthenticatedMode();
   }
 }
 

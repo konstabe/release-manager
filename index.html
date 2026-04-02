@@ -8,12 +8,33 @@
   </head>
   <body>
     <header class="app-header">
-      <div>
+      <div class="app-title">
         <h1>Календарь релизов</h1>
       </div>
+      <button class="secondary hidden" id="logout-button" type="button">
+        Выйти
+      </button>
     </header>
 
-    <main class="container">
+    <main class="container hidden" id="auth-screen">
+      <section class="auth-card">
+        <h2>Вход</h2>
+        <p class="auth-copy">Введите логин и пароль.</p>
+        <form id="login-form" class="auth-form">
+          <input type="text" name="login" placeholder="Логин" autocomplete="username" required />
+          <input
+            type="password"
+            name="password"
+            placeholder="Пароль"
+            autocomplete="current-password"
+            required
+          />
+          <button type="submit" class="primary">Войти</button>
+        </form>
+      </section>
+    </main>
+
+    <main class="container hidden" id="app-shell">
       <section class="setup-banner hidden" id="setup-banner">
         <p>
           Заполни <code>config.js</code>: укажи URL проекта и public anon key из
