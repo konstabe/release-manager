@@ -69,18 +69,6 @@ function normalizeName(name) {
   return String(name || "").trim().toLowerCase();
 }
 
-function inferTypeFromText(text) {
-  const lower = String(text || "").toLowerCase();
-  if (!lower) return null;
-  if (lower.includes("admin") || lower.includes("админ")) return "admin";
-  if (lower.includes("website") || lower.includes("web") || lower.includes("сайт")) return "website";
-  if (lower.includes("android") || lower.includes("андроид")) return "android";
-  if (lower.includes("ios") || lower.includes("айос") || lower.includes("iphone") || lower.includes("ipad")) {
-    return "ios";
-  }
-  return null;
-}
-
 function findTesterInGroup(type, assignedTester) {
   const stream = getStreamForType(type);
   return getTesterGroup(stream).find(
@@ -183,6 +171,7 @@ function createCell(text) {
 function renderReleases(stream, releases) {
   const target = document.getElementById(`${stream}-releases`);
   target.innerHTML = "";
+  const testers = getTesterGroup(stream);
 
   if (!releases.length) {
     const row = document.createElement("tr");
@@ -200,7 +189,23 @@ function renderReleases(stream, releases) {
     row.appendChild(createCell(release.title));
     row.appendChild(createCell(release.date || ""));
     row.appendChild(createCell(formatType(release.type)));
-    row.appendChild(createCell(release.assignedTester || ""));
+
+    const testerCell = document.createElement("td");
+    const testerSelect = document.createElement("select");
+    testerSelect.className = "tester-select";
+    testerSelect.dataset.id = String(release.id);
+    testerSelect.dataset.stream = stream;
+
+    testers.forEach((tester) => {
+      const optionElement = document.createElement("option");
+      optionElement.value = tester;
+      optionElement.textContent = tester;
+      optionElement.selected = tester === release.assignedTester;
+      testerSelect.appendChild(optionElement);
+    });
+
+    testerCell.appendChild(testerSelect);
+    row.appendChild(testerCell);
 
     const statusCell = document.createElement("td");
     const select = document.createElement("select");
@@ -352,6 +357,22 @@ async function updateStatus(id, status) {
   }
 }
 
+async function updateAssignedTester(id, type, assignedTester) {
+  const resolvedTester = findTesterInGroup(type, assignedTester);
+  if (!resolvedTester) {
+    throw new Error("Некорректный тестировщик.");
+  }
+
+  const { error } = await state.supabase
+    .from("releases")
+    .update({ assigned_tester: resolvedTester })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 async function deleteRelease(id) {
   const { error } = await state.supabase.from("releases").delete().eq("id", id);
   if (error) {
@@ -380,15 +401,6 @@ function initForms() {
     button.addEventListener("click", () => {
       const panel = document.querySelector(`.panel[data-stream='${button.dataset.stream}']`);
       panel.querySelector(".release-form").classList.toggle("hidden");
-      panel.querySelector(".import-form").classList.add("hidden");
-    });
-  });
-
-  document.querySelectorAll("[data-action='toggle-import']").forEach((button) => {
-    button.addEventListener("click", () => {
-      const panel = document.querySelector(`.panel[data-stream='${button.dataset.stream}']`);
-      panel.querySelector(".import-form").classList.toggle("hidden");
-      panel.querySelector(".release-form").classList.add("hidden");
     });
   });
 
@@ -420,44 +432,27 @@ function initForms() {
       }
     });
   });
-
-  document.querySelectorAll(".import-form").forEach((form) => {
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const data = new FormData(form);
-      const text = data.get("text");
-      const type = inferTypeFromText(text);
-
-      if (!type) {
-        alert("Не удалось определить тип релиза.");
-        return;
-      }
-
-      try {
-        const tester = await pickTester(type);
-        if (!tester) {
-          alert("Нет доступных тестировщиков.");
-          return;
-        }
-
-        await createRelease({
-          title: text,
-          type,
-          assignedTester: tester,
-        });
-
-        form.reset();
-        form.classList.add("hidden");
-        await refresh();
-      } catch (error) {
-        alert(error.message);
-      }
-    });
-  });
 }
 
 function initTableActions() {
   document.addEventListener("change", async (event) => {
+    if (event.target.matches(".tester-select")) {
+      const release = state.releases.find((item) => item.id === Number(event.target.dataset.id));
+      if (!release) {
+        await refresh();
+        return;
+      }
+
+      try {
+        await updateAssignedTester(release.id, release.type, event.target.value);
+        await refresh();
+      } catch (error) {
+        alert(error.message);
+        await refresh();
+      }
+      return;
+    }
+
     if (!event.target.matches(".status-select")) {
       return;
     }
