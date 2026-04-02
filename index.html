@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Календарь релизов</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">GitHub Pages + Supabase</p>
+        <h1>Календарь релизов</h1>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="info-banner">
+        <p>
+          Данные хранятся в Supabase. Любой пользователь страницы видит общую базу и
+          может добавлять, менять статус и удалять релизы.
+        </p>
+      </section>
+
+      <section class="setup-banner hidden" id="setup-banner">
+        <p>
+          Заполни <code>config.js</code>: укажи URL проекта и public anon key из
+          Supabase, потом обнови страницу.
+        </p>
+      </section>
+
+      <nav class="tabs">
+        <button class="tab active" data-target="web">Веб-релизы</button>
+        <button class="tab" data-target="mobile">Мобильные релизы</button>
+      </nav>
+
+      <section class="panel active" id="panel-web" data-stream="web">
+        <div class="panel-header">
+          <div>
+            <h2>Веб-релизы</h2>
+            <p class="panel-subtitle">Админка и сайт</p>
+          </div>
+          <div class="panel-actions">
+            <button class="primary" data-action="toggle-form" data-stream="web">
+              Добавить релиз
+            </button>
+            <button class="secondary" data-action="toggle-import" data-stream="web">
+              Импорт из чата
+            </button>
+          </div>
+        </div>
+
+        <form class="release-form hidden" data-stream="web">
+          <input type="text" name="title" placeholder="Название релиза" required />
+          <select name="type" required>
+            <option value="admin">Админка</option>
+            <option value="website">Сайт</option>
+          </select>
+          <input type="date" name="date" />
+          <button type="submit" class="primary">Создать</button>
+        </form>
+
+        <form class="import-form hidden" data-stream="web">
+          <textarea name="text" rows="2" placeholder="Вставьте текст релиза"></textarea>
+          <button type="submit" class="primary">Импортировать</button>
+        </form>
+
+        <table class="release-table">
+          <thead>
+            <tr>
+              <th>Релиз</th>
+              <th>Дата</th>
+              <th>Тип</th>
+              <th>Тестер</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="web-releases"></tbody>
+        </table>
+      </section>
+
+      <section class="panel" id="panel-mobile" data-stream="mobile">
+        <div class="panel-header">
+          <div>
+            <h2>Мобильные релизы</h2>
+            <p class="panel-subtitle">Android и iOS</p>
+          </div>
+          <div class="panel-actions">
+            <button class="primary" data-action="toggle-form" data-stream="mobile">
+              Добавить релиз
+            </button>
+            <button class="secondary" data-action="toggle-import" data-stream="mobile">
+              Импорт из чата
+            </button>
+          </div>
+        </div>
+
+        <form class="release-form hidden" data-stream="mobile">
+          <input type="text" name="title" placeholder="Название релиза" required />
+          <select name="type" required>
+            <option value="android">Android</option>
+            <option value="ios">iOS</option>
+          </select>
+          <input type="date" name="date" />
+          <button type="submit" class="primary">Создать</button>
+        </form>
+
+        <form class="import-form hidden" data-stream="mobile">
+          <textarea name="text" rows="2" placeholder="Вставьте текст релиза"></textarea>
+          <button type="submit" class="primary">Импортировать</button>
+        </form>
+
+        <table class="release-table">
+          <thead>
+            <tr>
+              <th>Релиз</th>
+              <th>Дата</th>
+              <th>Тип</th>
+              <th>Тестер</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="mobile-releases"></tbody>
+        </table>
+      </section>
+    </main>
+    <div class="modal hidden" id="availability-modal">
+      <div class="modal-card">
+        <h3>Назначение тестировщика</h3>
+        <p>
+          Следующий по очереди: <strong id="modal-tester-name"></strong>. Он может взять
+          релиз?
+        </p>
+        <div class="modal-actions">
+          <button class="primary" id="modal-yes">Да</button>
+          <button class="secondary" id="modal-no">Нет</button>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
