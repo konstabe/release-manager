@@ -1,7 +1,7 @@
 const STATUS_OPTIONS = ["new", "testing", "done"];
 const VALID_TYPES = ["admin", "website", "android", "ios"];
 const AUTH_LOGIN = "admin";
-const AUTH_EMAIL = "admin@release-manager.local";
+const AUTH_EMAIL = "admin2@release-manager.local";
 
 const TYPE_LABELS = {
   admin: "Админка",
