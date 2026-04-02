@@ -35,6 +35,8 @@ const state = {
   session: null,
 };
 
+const TESTER_PICK_CANCELLED = Symbol("tester-pick-cancelled");
+
 function getSupabaseConfig() {
   const config = window.APP_CONFIG || {};
   return {
@@ -117,11 +119,40 @@ function getNextTesterWithSkips(releases, type, skips = []) {
   return null;
 }
 
+function getUpcomingTesters(stream, limit = 3) {
+  const testers = getTesterGroup(stream);
+  if (testers.length === 0) {
+    return [];
+  }
+
+  const releases = getReleasesByStream(state.releases, stream);
+  let startIndex = 0;
+
+  if (releases.length > 0) {
+    const lastTester = releases[releases.length - 1].assignedTester;
+    const lastIndex = testers.findIndex(
+      (tester) => normalizeName(tester) === normalizeName(lastTester)
+    );
+    if (lastIndex !== -1) {
+      startIndex = (lastIndex + 1) % testers.length;
+    }
+  }
+
+  const result = [];
+  for (let offset = 0; offset < Math.min(limit, testers.length); offset += 1) {
+    result.push(testers[(startIndex + offset) % testers.length]);
+  }
+
+  return result;
+}
+
 function askTesterAvailability(tester) {
   const modal = document.getElementById("availability-modal");
   const name = document.getElementById("modal-tester-name");
   const yesButton = document.getElementById("modal-yes");
   const noButton = document.getElementById("modal-no");
+  const cancelButton = document.getElementById("modal-cancel");
+  const closeButton = document.getElementById("modal-close");
 
   return new Promise((resolve) => {
     name.textContent = tester;
@@ -131,20 +162,45 @@ function askTesterAvailability(tester) {
       modal.classList.add("hidden");
       yesButton.removeEventListener("click", onYes);
       noButton.removeEventListener("click", onNo);
+      cancelButton.removeEventListener("click", onCancel);
+      closeButton.removeEventListener("click", onCancel);
+      modal.removeEventListener("click", onOverlayClick);
+      document.removeEventListener("keydown", onKeyDown);
     };
 
     const onYes = () => {
       cleanup();
-      resolve(true);
+      resolve("yes");
     };
 
     const onNo = () => {
       cleanup();
-      resolve(false);
+      resolve("no");
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve("cancel");
+    };
+
+    const onOverlayClick = (event) => {
+      if (event.target === modal) {
+        onCancel();
+      }
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onCancel();
+      }
     };
 
     yesButton.addEventListener("click", onYes);
     noButton.addEventListener("click", onNo);
+    cancelButton.addEventListener("click", onCancel);
+    closeButton.addEventListener("click", onCancel);
+    modal.addEventListener("click", onOverlayClick);
+    document.addEventListener("keydown", onKeyDown);
   });
 }
 
@@ -156,9 +212,13 @@ async function pickTester(type) {
       return null;
     }
 
-    const confirmed = await askTesterAvailability(tester);
-    if (confirmed) {
+    const decision = await askTesterAvailability(tester);
+    if (decision === "yes") {
       return tester;
+    }
+
+    if (decision === "cancel") {
+      return TESTER_PICK_CANCELLED;
     }
 
     skips.push(tester);
@@ -241,9 +301,39 @@ function renderReleases(stream, releases) {
   });
 }
 
+function renderQueue(stream) {
+  const target = document.getElementById(`${stream}-queue`);
+  if (!target) {
+    return;
+  }
+
+  target.innerHTML = "";
+  const upcomingTesters = getUpcomingTesters(stream, 3);
+
+  if (!upcomingTesters.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 2;
+    cell.className = "empty-state";
+    cell.textContent = "Нет тестировщиков.";
+    row.appendChild(cell);
+    target.appendChild(row);
+    return;
+  }
+
+  upcomingTesters.forEach((tester, index) => {
+    const row = document.createElement("tr");
+    row.appendChild(createCell(String(index + 1)));
+    row.appendChild(createCell(tester));
+    target.appendChild(row);
+  });
+}
+
 function renderAll() {
   renderReleases("web", getReleasesByStream(state.releases, "web"));
   renderReleases("mobile", getReleasesByStream(state.releases, "mobile"));
+  renderQueue("web");
+  renderQueue("mobile");
 }
 
 function renderError(message) {
@@ -257,6 +347,18 @@ function renderError(message) {
     cell.textContent = message;
     row.appendChild(cell);
     target.appendChild(row);
+
+    const queueTarget = document.getElementById(`${stream}-queue`);
+    if (queueTarget) {
+      queueTarget.innerHTML = "";
+      const queueRow = document.createElement("tr");
+      const queueCell = document.createElement("td");
+      queueCell.colSpan = 2;
+      queueCell.className = "empty-state";
+      queueCell.textContent = "Очередь недоступна.";
+      queueRow.appendChild(queueCell);
+      queueTarget.appendChild(queueRow);
+    }
   });
 }
 
@@ -480,6 +582,10 @@ function initForms() {
 
       try {
         const tester = await pickTester(type);
+        if (tester === TESTER_PICK_CANCELLED) {
+          return;
+        }
+
         if (!tester) {
           alert("Нет доступных тестировщиков.");
           return;

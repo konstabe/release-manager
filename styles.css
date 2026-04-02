@@ -50,7 +50,7 @@ body {
 }
 
 .container {
-  max-width: 1040px;
+  max-width: 1380px;
   margin: 0 auto;
   padding: 28px 24px 48px;
 }
@@ -129,6 +129,18 @@ body {
   display: block;
 }
 
+.panel-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 20px;
+  align-items: start;
+}
+
+.table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
 .panel-header {
   display: flex;
   justify-content: space-between;
@@ -201,8 +213,48 @@ form {
 
 .release-table {
   width: 100%;
+  min-width: 920px;
   border-collapse: collapse;
   margin-top: 12px;
+}
+
+.queue-card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-alt);
+}
+
+.queue-card-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.queue-card-header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.queue-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+}
+
+.queue-table th,
+.queue-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e5ebf5;
+  font-size: 14px;
+  text-align: left;
+}
+
+.queue-table th {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .release-table th,
@@ -219,6 +271,10 @@ form {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.tester-select {
+  min-width: 180px;
 }
 
 .status-select {
@@ -261,11 +317,30 @@ form {
 }
 
 .modal-card {
+  position: relative;
   width: min(420px, 100%);
   padding: 22px;
   border-radius: 18px;
   background: #fff;
   box-shadow: 0 20px 50px rgba(19, 32, 51, 0.24);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.modal-close:hover {
+  background: #eef3fa;
 }
 
 .modal-card h3 {
@@ -296,6 +371,10 @@ code {
   .panel-header,
   form {
     flex-direction: column;
+  }
+
+  .panel-layout {
+    grid-template-columns: 1fr;
   }
 
   .tabs {
